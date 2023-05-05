@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace ARMeilleure.Memory
 {
@@ -8,7 +9,18 @@ namespace ARMeilleure.Memory
 
         public IJitMemoryBlock Block { get; }
 
-        public IntPtr Pointer => Block.Pointer;
+        private IntPtr _pointer;
+        public IntPtr Pointer
+        {
+            get
+            {
+                if (_pointer == IntPtr.Zero)
+                {
+                    _pointer = Block.Pointer;
+                }
+                return _pointer;
+            }
+        }
 
         private readonly ulong _maxSize;
         private readonly ulong _sizeGranularity;
@@ -34,18 +46,16 @@ namespace ARMeilleure.Memory
                 throw new OutOfMemoryException();
             }
 
-            if (desiredSize > _currentSize)
+            ulong currentSize = _currentSize;
+            while (desiredSize > currentSize)
             {
-                // Lock, and then check again. We only want to commit once.
-                lock (this)
+                ulong overflowBytes = desiredSize - currentSize;
+                ulong moreToCommit = (((_sizeGranularity - 1) + overflowBytes) >> 16 << 16); // Round up.
+                ulong oldSize = currentSize;
+                currentSize = Interlocked.CompareExchange(ref _currentSize, currentSize + moreToCommit, oldSize);
+                if (currentSize == oldSize)
                 {
-                    if (desiredSize >= _currentSize)
-                    {
-                        ulong overflowBytes = desiredSize - _currentSize;
-                        ulong moreToCommit = (((_sizeGranularity - 1) + overflowBytes) / _sizeGranularity) * _sizeGranularity; // Round up.
-                        Block.Commit(_currentSize, moreToCommit);
-                        _currentSize += moreToCommit;
-                    }
+                    Block.Commit(oldSize, moreToCommit);
                 }
             }
         }
