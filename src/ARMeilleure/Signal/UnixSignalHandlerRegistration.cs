@@ -8,7 +8,7 @@ namespace ARMeilleure.Signal
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public unsafe struct SigSet
         {
-            fixed long sa_mask[16];
+            fixed ulong sa_mask[8];
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -31,7 +31,7 @@ namespace ARMeilleure.Signal
         private static partial int sigaction(int signum, IntPtr sigAction, out SigAction oldAction);
 
         [LibraryImport("libc", SetLastError = true)]
-        private static partial int sigemptyset(ref SigSet set);
+        private static partial int sigemptyset(SigSet set);
 
         public static SigAction GetSegfaultExceptionHandler()
         {
@@ -53,31 +53,24 @@ namespace ARMeilleure.Signal
                 sa_flags = SA_SIGINFO
             };
 
-            sigemptyset(ref sig.sa_mask);
+            sigemptyset(sig.sa_mask);
 
-            int result = sigaction(SIGSEGV, ref sig, out SigAction old);
-
-            if (result != 0)
+            if (OperatingSystem.IsMacOS() ? sigaction(SIGBUS, ref sig, out _) != 0 : true)
             {
-                throw new InvalidOperationException($"Could not register SIGSEGV sigaction. Error: {result}");
-            }
-
-            if (OperatingSystem.IsMacOS())
-            {
-                result = sigaction(SIGBUS, ref sig, out _);
-
-                if (result != 0)
+                if (sigaction(SIGSEGV, ref sig, out SigAction old) != 0)
                 {
-                    throw new InvalidOperationException($"Could not register SIGBUS sigaction. Error: {result}");
+                    throw new InvalidOperationException($"Could not register SIGSEGV sigaction. Error: {Marshal.GetLastWin32Error()}");
                 }
+
+                return old;
             }
 
-            return old;
+            throw new InvalidOperationException($"Could not register SIGBUS sigaction. Error: {Marshal.GetLastWin32Error()}");
         }
 
         public static bool RestoreExceptionHandler(SigAction oldAction)
         {
-            return sigaction(SIGSEGV, ref oldAction, out SigAction _) == 0 && (!OperatingSystem.IsMacOS() || sigaction(SIGBUS, ref oldAction, out SigAction _) == 0);
+            return sigaction(SIGSEGV, ref oldAction, out SigAction _) == 0 && (OperatingSystem.IsMacOS() ? sigaction(SIGBUS, ref oldAction, out SigAction _) == 0 : true);
         }
     }
 }
