@@ -10,10 +10,31 @@ namespace ARMeilleure.Decoders
 
         public OpCodeT16Adr(InstDescriptor inst, ulong address, int opCode) : base(inst, address, opCode)
         {
-            Rd = (opCode >> 8) & 7;
+            Rd = opCode & 7;
 
-            int imm = (opCode & 0xff) << 2;
-            Immediate = (int)(GetPc() & 0xfffffffc) + imm;
+            int imm = (opCode >> 3) & 0x1f;
+            if (imm == 0)
+            {
+                Immediate = (int)(GetPc() & 0xfffffffc);
+            }
+            else if (imm == 0x1f)
+            {
+                Immediate = (int)(GetPc() & 0xfffffffc) - 0x1000;
+            }
+            else
+            {
+                int sign = (opCode >> 9) & 1;
+                imm |= (opCode >> 4) & 0x18;
+
+                if (sign == 0)
+                {
+                    Immediate = (int)(GetPc() & 0xfffffffc) + imm;
+                }
+                else
+                {
+                    Immediate = (int)(GetPc() & 0xfffffffc) - imm;
+                }
+            }
         }
     }
 }

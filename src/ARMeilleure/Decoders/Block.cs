@@ -5,20 +5,31 @@ namespace ARMeilleure.Decoders
 {
     class Block
     {
-        public ulong Address    { get; set; }
+        private List<OpCode> _opCodes;
+        
+        public ulong Address { get; set; }
         public ulong EndAddress { get; set; }
-
-        public Block Next   { get; set; }
+        public Block Next { get; set; }
         public Block Branch { get; set; }
-
         public bool Exit { get; set; }
 
-        public List<OpCode> OpCodes { get; }
-
-        public Block()
+        public List<OpCode> OpCodes
         {
-            OpCodes = new List<OpCode>();
+            get
+            {
+                if (_opCodes == null)
+                {
+                    _opCodes = new List<OpCode>();
+                }
+                return _opCodes;
+            }
+            set
+            {
+                _opCodes = value;
+            }
         }
+
+        public Block() {}
 
         public Block(ulong address) : this()
         {
@@ -43,14 +54,19 @@ namespace ARMeilleure.Decoders
 
             rightBlock.EndAddress = EndAddress;
 
-            rightBlock.Next   = Next;
+            rightBlock.Next = Next;
             rightBlock.Branch = Branch;
+
+            if (rightBlock.OpCodes == null)
+            {
+                rightBlock.OpCodes = new List<OpCode>();
+            }
 
             rightBlock.OpCodes.AddRange(OpCodes.GetRange(splitIndex, splitCount));
 
             EndAddress = rightBlock.Address;
 
-            Next   = rightBlock;
+            Next = rightBlock;
             Branch = null;
 
             OpCodes.RemoveRange(splitIndex, splitCount);
@@ -58,9 +74,9 @@ namespace ARMeilleure.Decoders
 
         private static int BinarySearch(List<OpCode> opCodes, ulong address)
         {
-            int left   = 0;
+            int left = 0;
             int middle = 0;
-            int right  = opCodes.Count - 1;
+            int right = opCodes.Count - 1;
 
             while (left <= right)
             {
@@ -70,12 +86,12 @@ namespace ARMeilleure.Decoders
 
                 OpCode opCode = opCodes[middle];
 
-                if (address == (ulong)opCode.Address)
+                if (address == opCode.Address)
                 {
                     break;
                 }
 
-                if (address < (ulong)opCode.Address)
+                if (address < opCode.Address)
                 {
                     right = middle - 1;
                 }

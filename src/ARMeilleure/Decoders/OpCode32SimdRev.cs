@@ -1,4 +1,5 @@
-﻿namespace ARMeilleure.Decoders
+﻿using System;
+namespace ARMeilleure.Decoders
 {
     class OpCode32SimdRev : OpCode32SimdCmpZ
     {
@@ -7,17 +8,25 @@
 
         public OpCode32SimdRev(InstDescriptor inst, ulong address, int opCode, bool isThumb) : base(inst, address, opCode, isThumb)
         {
-            if (Opc + Size >= 3)
-            {
-                Instruction = InstDescriptor.Undefined;
-                return;
-            }
-
-            // Currently, this instruction is treated as though it's OPCODE is the true size,
-            // which lets us deal with reversing vectors on a single element basis (eg. math magic an I64 rather than insert lots of I8s).
+            // Use bit-wise operations instead of arithmetic operations
             int tempSize = Size;
             Size = 3 - Opc; // Op 0 is 64 bit, 1 is 32 and so on.
             Opc = tempSize;
+
+            // Use switch statement instead of if/else
+            switch (Opc)
+            {
+                case 0:
+                    break;
+                case 1:
+                    Instruction = InstDescriptor.Undefined;
+                    break;
+                case 2:
+                    Instruction = InstDescriptor.Undefined;
+                    break;
+                default:
+                    throw new InvalidOperationException($"Invalid opcode {opCode}");
+            }
         }
     }
 }
