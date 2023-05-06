@@ -1,5 +1,6 @@
 ﻿using ARMeilleure.Memory;
 using ARMeilleure.Translation;
+using System;
 
 namespace Ryujinx.Cpu.Jit
 {
@@ -7,13 +8,19 @@ namespace Ryujinx.Cpu.Jit
     {
         private readonly ITickSource _tickSource;
         private readonly Translator _translator;
+        private readonly JitMemoryAllocator _memoryAllocator;
 
         public JitCpuContext(ITickSource tickSource, IMemoryManager memory, bool for64Bit)
         {
             _tickSource = tickSource;
-            _translator = new Translator(new JitMemoryAllocator(), memory, for64Bit);
+            _memoryAllocator = new JitMemoryAllocator();
+            _translator = new Translator(_memoryAllocator, memory, for64Bit);
             memory.UnmapEvent += UnmapHandler;
         }
+        public IDiskCacheLoadState LoadDiskCache(string titleIdText, string displayVersion, bool enabled)
+{
+    return new JitDiskCacheLoadState(_translator.LoadDiskCache(titleIdText, displayVersion, enabled));
+}
 
         private void UnmapHandler(ulong address, ulong size)
         {
@@ -23,12 +30,17 @@ namespace Ryujinx.Cpu.Jit
         /// <inheritdoc/>
         public IExecutionContext CreateExecutionContext(ExceptionCallbacks exceptionCallbacks)
         {
-            return new JitExecutionContext(new JitMemoryAllocator(), _tickSource, exceptionCallbacks);
+            return new JitExecutionContext(_memoryAllocator, _tickSource, exceptionCallbacks);
         }
 
         /// <inheritdoc/>
         public void Execute(IExecutionContext context, ulong address)
         {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
             _translator.Execute(((JitExecutionContext)context).Impl, address);
         }
 
@@ -39,9 +51,9 @@ namespace Ryujinx.Cpu.Jit
         }
 
         /// <inheritdoc/>
-        public IDiskCacheLoadState LoadDiskCache(string titleIdText, string displayVersion, bool enabled)
+        public IDiskCacheLoadState LoadDiskCache(string titleIdText, string displayVersion, bool? enabled)
         {
-            return new JitDiskCacheLoadState(_translator.LoadDiskCache(titleIdText, displayVersion, enabled));
+            return new JitDiskCacheLoadState(_translator.LoadDiskCache(titleIdText, displayVersion, enabled ?? false));
         }
 
         /// <inheritdoc/>

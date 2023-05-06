@@ -226,49 +226,49 @@ namespace Ryujinx.Cpu.Jit
         /// <param name="va">Virtual address to write the data into</param>
         /// <param name="data">Data to be written</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void WriteImpl(ulong va, ReadOnlySpan<byte> data)
+private void WriteImpl(ulong va, ReadOnlySpan<byte> data)
+{
+    try
+    {
+        AssertValidAddressAndSize(va, (ulong)data.Length);
+
+        if (IsContiguousAndMapped(va, data.Length))
         {
-            try
+            data.CopyTo(_backingMemory.GetSpan(GetPhysicalAddressInternal(va), data.Length));
+        }
+        else
+        {
+            int offset = 0;
+            int size = (int)(PageSize - (va & PageMask));
+
+            if (size > data.Length)
             {
-                AssertValidAddressAndSize(va, (ulong)data.Length);
-
-                if (IsContiguousAndMapped(va, data.Length))
-                {
-                    data.CopyTo(_backingMemory.GetSpan(GetPhysicalAddressInternal(va), data.Length));
-                }
-                else
-                {
-                    int offset = 0, size;
-
-                    if ((va & PageMask) != 0)
-                    {
-                        ulong pa = GetPhysicalAddressInternal(va);
-
-                        size = Math.Min(data.Length, PageSize - (int)(va & PageMask));
-
-                        data.Slice(0, size).CopyTo(_backingMemory.GetSpan(pa, size));
-
-                        offset += size;
-                    }
-
-                    for (; offset < data.Length; offset += size)
-                    {
-                        ulong pa = GetPhysicalAddressInternal(va + (ulong)offset);
-
-                        size = Math.Min(data.Length - offset, PageSize);
-
-                        data.Slice(offset, size).CopyTo(_backingMemory.GetSpan(pa, size));
-                    }
-                }
+                size = data.Length;
             }
-            catch (InvalidMemoryRegionException)
+
+            data.Slice(0, size).CopyTo(_backingMemory.GetSpan(GetPhysicalAddressInternal(va), size));
+
+            offset += size;
+
+            while (offset < data.Length)
             {
-                if (_invalidAccessHandler == null || !_invalidAccessHandler(va))
-                {
-                    throw;
-                }
+                size = (data.Length - offset) > PageSize ? PageSize : data.Length - offset;
+
+                data.Slice(offset, size).CopyTo(_backingMemory.GetSpan(GetPhysicalAddressInternal(va + (ulong)offset), size));
+
+                offset += size;
             }
         }
+    }
+    catch (InvalidMemoryRegionException)
+    {
+        if (_invalidAccessHandler == null || !_invalidAccessHandler(va))
+        {
+            throw;
+        }
+    }
+}
+
 
         /// <inheritdoc/>
         public ReadOnlySpan<byte> GetSpan(ulong va, int size, bool tracked = false)

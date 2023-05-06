@@ -18,13 +18,14 @@ namespace Ryujinx.Cpu.Jit
 
         private void LoadStateChanged(PtcLoadingState newState, int current, int total)
         {
-            LoadState state = newState switch
-            {
-                PtcLoadingState.Start => LoadState.Unloaded,
-                PtcLoadingState.Loading => LoadState.Loading,
-                PtcLoadingState.Loaded => LoadState.Loaded,
-                _ => throw new ArgumentException($"Invalid load state \"{newState}\".")
-            };
+            if (Enum.TryParse(newState.ToString(), out LoadState state))
+{
+    StateChanged?.Invoke(state, current, total);
+}
+else
+{
+    throw new ArgumentException($"Invalid load state \"{newState}\".");
+}
 
             StateChanged?.Invoke(state, current, total);
         }

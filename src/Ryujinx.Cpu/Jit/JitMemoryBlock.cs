@@ -16,7 +16,9 @@ namespace Ryujinx.Cpu.Jit
         }
 
         public bool Commit(ulong offset, ulong size) => _impl.Commit(offset, size);
+
         public void MapAsRx(ulong offset, ulong size) => _impl.Reprotect(offset, size, MemoryPermission.ReadAndExecute);
+
         public void MapAsRwx(ulong offset, ulong size) => _impl.Reprotect(offset, size, MemoryPermission.ReadWriteExecute);
 
         public void Dispose() => _impl.Dispose();
